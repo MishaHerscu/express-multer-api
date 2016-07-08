@@ -4,6 +4,8 @@
 require('dotenv').config();
 
 const fs = require('fs');
+const crypto = require('crypto');
+
 const fileType = require('file-type');
 const AWS = require('aws-sdk');
 const s3 = new AWS.S3({
@@ -22,21 +24,38 @@ const mimeType = (data) => {
   }, fileType(data));
 };
 
-const awsUpload = (file) => {
-  const options = {
-    ACL: "public-read",
-    Body: file.data,
-    Bucket: 'wdi-12-mh-storage',
-    ContentType: file.mime,
-    Key: `test/test.${file.ext}`
-  };
-
+const randomeHexString = (length) => {
   return new Promise((resolve, reject) => {
-    s3.upload(options, function(error, data){
-      if (error) {
+    crypto.randomBytes(length, (error, buffer) => {
+      if(error){
         reject(error);
       }
-      resolve(data);
+      resolve(buffer.toString('hex'));
+    });
+  });
+};
+
+const awsUpload = (file) => {
+  return randomeHexString(16)
+  .then((filename) => {
+    let dir = new Date().toISOString().split('T')[0];
+    return {
+      ACL: "public-read",
+      Body: file.data,
+      Bucket: 'wdi-12-mh-storage',
+      ContentType: file.mime,
+      Key: `${dir}/${filename}.${file.ext}`
+    };
+  })
+  .then((options) => {
+    return new Promise((resolve, reject) => {
+      s3.upload(options, function(error, data){
+        if (error) {
+          reject(error);
+        }
+
+        resolve(data);
+      });
     });
   });
 };
